@@ -26,7 +26,8 @@
   const $addPlayer = document.getElementById("add-player");
   const $startGame = document.getElementById("start-game");
   const $setupError = document.getElementById("setup-error");
-  const $scoreboard = document.getElementById("scoreboard");
+  const $activePlayer = document.getElementById("active-player");
+  const $playersList = document.getElementById("players-list");
   const $diceContainer = document.getElementById("dice-container");
   const $roundScore = document.getElementById("round-score");
   const $selectionScore = document.getElementById("selection-score");
@@ -165,14 +166,22 @@
   }
 
   function updateScoreboard() {
-    $scoreboard.innerHTML = "";
+    const activeIndex = state.currentPlayerIndex;
+    const activeName = state.players[activeIndex];
+    const activeScore = state.totalScores[activeIndex];
+
+    $activePlayer.className = "score-card active";
+    if (activeScore >= WIN_SCORE) $activePlayer.classList.add("winner");
+    $activePlayer.innerHTML = `<span class="name">${escapeHtml(activeName)}</span><span class="score">${activeScore}</span>`;
+
+    $playersList.innerHTML = "";
     state.players.forEach((name, i) => {
-      const card = document.createElement("div");
-      card.className = "score-card";
-      if (i === state.currentPlayerIndex) card.classList.add("active");
-      if (state.totalScores[i] >= WIN_SCORE) card.classList.add("winner");
-      card.innerHTML = `<span class="name">${escapeHtml(name)}</span><span class="score">${state.totalScores[i]}</span>`;
-      $scoreboard.appendChild(card);
+      if (i === activeIndex) return;
+      const chip = document.createElement("div");
+      chip.className = "player-chip";
+      if (state.totalScores[i] >= WIN_SCORE) chip.classList.add("winner");
+      chip.innerHTML = `<span class="chip-name">${escapeHtml(name)}</span><span class="chip-score">${state.totalScores[i]}</span>`;
+      $playersList.appendChild(chip);
     });
   }
 

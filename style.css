@@ -184,9 +184,65 @@ header h1 {
 }
 
 #scoreboard {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
+  display: flex;
+  flex-direction: column;
   gap: 10px;
+}
+
+#active-player {
+  text-align: center;
+  padding: 14px;
+}
+
+#active-player .name {
+  display: block;
+  font-size: 1.1rem;
+  font-weight: 600;
+  margin-bottom: 4px;
+}
+
+#active-player .score {
+  display: block;
+  font-size: 2rem;
+  font-weight: 700;
+}
+
+.player-chips {
+  display: flex;
+  gap: 8px;
+  overflow-x: auto;
+  padding: 4px 2px;
+  scrollbar-width: none; /* Firefox */
+  -ms-overflow-style: none; /* IE 10+ */
+}
+
+.player-chips::-webkit-scrollbar {
+  display: none;
+}
+
+.player-chip {
+  flex: 0 0 auto;
+  background: var(--card);
+  border-radius: 999px;
+  padding: 6px 12px;
+  font-size: 0.85rem;
+  font-weight: 500;
+  color: var(--text);
+  box-shadow: var(--shadow);
+  white-space: nowrap;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.player-chip .chip-score {
+  color: var(--muted);
+  font-weight: 700;
+}
+
+.player-chip.winner {
+  outline: 2px solid var(--warning);
+  background: #3d3020;
 }
 
 .score-card {
