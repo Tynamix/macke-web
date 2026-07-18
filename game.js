@@ -54,7 +54,7 @@
 
   function playDiceClick(delaySec) {
     const t = audioCtx.currentTime + delaySec;
-    const duration = 0.05 + Math.random() * 0.03;
+    const duration = 0.03 + Math.random() * 0.02;
 
     // Körniges Klack-Geräusch: kurzer Rausch-Burst mit Bandpass
     const noiseLen = Math.floor(audioCtx.sampleRate * duration);
@@ -68,26 +68,26 @@
 
     const bandpass = audioCtx.createBiquadFilter();
     bandpass.type = "bandpass";
-    bandpass.frequency.value = 1500 + Math.random() * 1500;
-    bandpass.Q.value = 1.2;
+    bandpass.frequency.value = 2200 + Math.random() * 1800;
+    bandpass.Q.value = 0.8;
 
     const noiseGain = audioCtx.createGain();
-    noiseGain.gain.setValueAtTime(0.5, t);
+    noiseGain.gain.setValueAtTime(0.7, t);
     noiseGain.gain.exponentialRampToValueAtTime(0.001, t + duration);
 
     noise.connect(bandpass).connect(noiseGain).connect(audioCtx.destination);
     noise.start(t);
     noise.stop(t + duration);
 
-    // Tiefer "Thock"-Anteil: kurzer Sinus, schnell fallend
+    // Hoher "Klack"-Anteil: kurzer Sinus, sehr schnell fallend
     const osc = audioCtx.createOscillator();
     osc.type = "sine";
-    osc.frequency.setValueAtTime(180 + Math.random() * 80, t);
-    osc.frequency.exponentialRampToValueAtTime(60, t + duration);
+    osc.frequency.setValueAtTime(800 + Math.random() * 600, t);
+    osc.frequency.exponentialRampToValueAtTime(300, t + duration * 0.7);
 
     const oscGain = audioCtx.createGain();
-    oscGain.gain.setValueAtTime(0.25, t);
-    oscGain.gain.exponentialRampToValueAtTime(0.001, t + duration);
+    oscGain.gain.setValueAtTime(0.15, t);
+    oscGain.gain.exponentialRampToValueAtTime(0.001, t + duration * 0.5);
 
     osc.connect(oscGain).connect(audioCtx.destination);
     osc.start(t);
@@ -733,6 +733,7 @@
 
   // Debug API for testing
   window.MackeGame = {
+    DebugAudio: { playRollSound },
     getState: () => ({
       players: state.players,
       playerTypes: state.playerTypes,
