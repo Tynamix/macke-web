@@ -508,26 +508,28 @@
   function shouldBank() {
     const remainingDice = DICE_COUNT - state.frozenDice.size;
     const potentialTotal = state.totalScores[state.currentPlayerIndex] + state.roundScore;
+    const computerTotal = state.totalScores[state.currentPlayerIndex];
+    const maxOpponent = Math.max(...state.totalScores);
+    const behind = maxOpponent - computerTotal;
 
     // Win if possible
     if (potentialTotal >= WIN_SCORE) return true;
 
-    // Always keep going when we can reroll all 6
-    if (remainingDice === 6) return false;
+    // All dice frozen -> fresh 6 dice, always roll again
+    if (remainingDice === 0) return false;
 
-    // If computer is behind, be a bit greedier
-    const maxOpponent = Math.max(...state.totalScores);
-    const computerTotal = state.totalScores[state.currentPlayerIndex];
-    const behind = maxOpponent - computerTotal;
+    // With plenty of dice left, be bold
+    if (remainingDice >= 3) {
+      if (behind > 1500 && state.roundScore < 500) return false;
+      if (state.roundScore >= 800) return true;
+      return false;
+    }
 
-    // Late game: play safer
-    const target = computerTotal >= 7000 ? 400 : 300;
+    // With 1-2 dice left, bank a reasonable amount
+    const target = computerTotal >= 7000 ? 400 : 250;
+    if (state.roundScore >= target) return true;
 
-    // Bank when we have a decent score and few dice left
-    if (state.roundScore >= target && remainingDice <= 2) return true;
-    if (state.roundScore >= 500) return true;
-
-    // Catch up mode: keep rolling if far behind
+    // Far behind: try to catch up even with few dice
     if (behind > 2000 && state.roundScore < 400) return false;
 
     return false;
