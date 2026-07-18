@@ -108,7 +108,7 @@
     return score > 0 && used === values.length;
   }
 
-  // Build DOM for a die using 2D face representation
+  // Build DOM for a 3D die with six faces
   function createDie(index, value) {
     const wrapper = document.createElement("div");
     wrapper.className = "die-wrapper";
@@ -117,15 +117,22 @@
     const die = document.createElement("div");
     die.className = "die";
 
-    const face = document.createElement("div");
-    face.className = `die-face face-${value}`;
-    for (let p = 0; p < value; p++) {
-      const pip = document.createElement("span");
-      pip.className = "pip";
-      face.appendChild(pip);
-    }
+    // Create faces in order: front(1), back(6), left(2), right(5), top(3), bottom(4)
+    const faceValues = [1, 6, 2, 5, 3, 4];
+    faceValues.forEach((faceValue) => {
+      const face = document.createElement("div");
+      face.className = `die-face face-${faceValue}`;
+      for (let p = 0; p < faceValue; p++) {
+        const pip = document.createElement("span");
+        pip.className = "pip";
+        face.appendChild(pip);
+      }
+      die.appendChild(face);
+    });
 
-    die.appendChild(face);
+    // Set orientation to show the current value
+    die.classList.add(`show-${value}`);
+
     wrapper.appendChild(die);
     wrapper.addEventListener("click", () => onDieClick(index));
     return wrapper;
@@ -298,7 +305,7 @@
     if (!canScore(activeValues)) {
       state.isMacke = true;
       state.canBank = false;
-      showMessage("Macke! Drücke \"Würfeln\", um den Zug zu beenden.", "danger");
+      showMessage("Macke! Drücke \"Würfeln\", um den Zug zu enden.", "danger");
       updateStats();
       setControls();
       return;

@@ -4,7 +4,7 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
   <title>Macke – 10.000</title>
-  <link rel="stylesheet" href="style.css?v=5" />
+  <link rel="stylesheet" href="style.css?v=8" />
   <script>
     window.onerror = function(msg, url, line) {
       console.error('JS ERROR:', msg, url, line);
@@ -42,13 +42,7 @@
 
       <div id="dice-area">
         <div id="dice-container">
-          <!-- Initial dice placeholders to avoid empty render -->
-          <div class="die-wrapper frozen"><div class="die"><div class="die-face face-1"><span class="pip"></span></div></div></div>
-          <div class="die-wrapper frozen"><div class="die"><div class="die-face face-1"><span class="pip"></span></div></div></div>
-          <div class="die-wrapper frozen"><div class="die"><div class="die-face face-1"><span class="pip"></span></div></div></div>
-          <div class="die-wrapper frozen"><div class="die"><div class="die-face face-1"><span class="pip"></span></div></div></div>
-          <div class="die-wrapper frozen"><div class="die"><div class="die-face face-1"><span class="pip"></span></div></div></div>
-          <div class="die-wrapper frozen"><div class="die"><div class="die-face face-1"><span class="pip"></span></div></div></div>
+          <!-- Würfel werden per JS gerendert -->
         </div>
         <p id="round-info">Runde: <span id="current-player-name">-</span></p>
       </div>
@@ -94,6 +88,6 @@
     </section>
   </main>
 
-  <script src="game.js?v=5"></script>
+  <script src="game.js?v=8"></script>
 </body>
 </html>
