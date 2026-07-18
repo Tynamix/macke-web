@@ -20,6 +20,7 @@
     isMacke: false,
     computerThinking: false,
     hasFrozen: false,
+    turnEnding: false,
   };
 
   const $setup = document.getElementById("setup");
@@ -211,8 +212,13 @@
 
   function setControls() {
     const isComputer = state.playerTypes[state.currentPlayerIndex] === "computer";
-    $bankBtn.disabled = !state.canBank || state.isRolling || isComputer;
-    $rollBtn.disabled = state.isRolling || isComputer;
+    $bankBtn.disabled =
+      (!state.canBank && !state.isMacke) ||
+      state.isRolling ||
+      isComputer ||
+      state.turnEnding;
+    $rollBtn.disabled =
+      state.isRolling || isComputer || state.isMacke || state.turnEnding;
   }
 
   function onDieClick(index) {
@@ -251,29 +257,7 @@
   }
 
   function rollDice() {
-    if (state.isRolling || state.gameOver) return;
-
-    // If previous roll was a Macke, end turn and immediately roll for the next player
-    if (state.isMacke) {
-      const currentName = state.players[state.currentPlayerIndex];
-      showMessage(`Macke! ${currentName} kommt auf 0 Punkte.`, "danger");
-      state.roundScore = 0;
-      state.isMacke = false;
-      state.dice = [];
-      state.frozenDice.clear();
-      state.selectedDice.clear();
-      state.hasRolled = false;
-      state.hasFrozen = false;
-      state.currentPlayerIndex =
-        (state.currentPlayerIndex + 1) % state.players.length;
-      updateScoreboard();
-      updateStats();
-      renderDice();
-      setControls();
-      // Next player starts automatically if it's a computer
-      scheduleComputerAction();
-      return;
-    }
+    if (state.isRolling || state.gameOver || state.turnEnding) return;
 
     // Prevent rolling again before selecting at least one scoring die
     if (state.hasRolled && state.selectedDice.size === 0 && !state.hasFrozen) {
@@ -332,7 +316,7 @@
     if (!canScore(activeValues)) {
       state.isMacke = true;
       state.canBank = false;
-      showMessage("Macke! Drücke \"Würfeln\", um den Zug zu enden.", "danger");
+      showMessage("Macke! Schreibe auf, um den Zug zu beenden.", "danger");
       updateStats();
       setControls();
       scheduleComputerAction();
@@ -359,7 +343,15 @@
   }
 
   function bankScore() {
-    if (!state.canBank || state.isRolling || state.gameOver) return;
+    if (state.isRolling || state.gameOver || state.turnEnding) return;
+
+    // Macke end: allow banking with 0 points
+    if (state.isMacke) {
+      endMackeTurn();
+      return;
+    }
+
+    if (!state.canBank) return;
 
     if (state.selectedDice.size > 0) {
       if (!isValidSelection()) {
@@ -369,6 +361,8 @@
       freezeSelection();
     }
 
+    state.turnEnding = true;
+    setControls();
     state.totalScores[state.currentPlayerIndex] += state.roundScore;
     showMessage(`${state.players[state.currentPlayerIndex]} bekommt ${state.roundScore} Punkte!`, "success");
     updateScoreboard();
@@ -378,6 +372,13 @@
       return;
     }
 
+    setTimeout(nextTurn, 900);
+  }
+
+  function endMackeTurn() {
+    state.turnEnding = true;
+    setControls();
+    showMessage(`Macke! ${state.players[state.currentPlayerIndex]} verliert die Runde.`, "danger");
     setTimeout(nextTurn, 900);
   }
 
@@ -393,6 +394,7 @@
     state.isRolling = false;
     state.isMacke = false;
     state.hasFrozen = false;
+    state.turnEnding = false;
     clearMessage();
 
     renderDice();
@@ -428,11 +430,11 @@
   }
 
   function computerTurnStep() {
-    if (!isComputerTurn() || state.gameOver || state.isRolling) return;
+    if (!isComputerTurn() || state.gameOver || state.isRolling || state.turnEnding) return;
 
-    // Handle Macke: press roll to end turn
+    // Handle Macke: press bank to end turn
     if (state.isMacke) {
-      rollDice();
+      bankScore();
       return;
     }
 
@@ -537,6 +539,22 @@
 
   // ========== SETUP ==========
 
+  const COMPUTER_NAMES = [
+    "Robo", "Kalle", "Doro", "Hanni", "Fritz", "Greta", "Otto", "Berta",
+    "Klara", "Hugo", "Emil", "Luise", "Walter", "Erika", "Paul", "Anna"
+  ];
+
+  function getRandomComputerName() {
+    const existing = new Set(state.players);
+    // Also avoid names already present in setup rows
+    Array.from($playersSetup.querySelectorAll(".player-name")).forEach((input) => {
+      if (input.value.trim()) existing.add(input.value.trim());
+    });
+    const available = COMPUTER_NAMES.filter((n) => !existing.has(n));
+    if (available.length === 0) return `Computer ${existing.size + 1}`;
+    return available[rand(0, available.length - 1)];
+  }
+
   function addPlayerRow(type = "human") {
     if ($playersSetup.children.length >= 8) return;
     const row = document.createElement("div");
@@ -544,9 +562,10 @@
     row.dataset.type = type;
 
     if (type === "computer") {
+      const name = getRandomComputerName();
       row.innerHTML = `
         <span class="computer-badge">🤖</span>
-        <input type="text" class="player-name" placeholder="Computer" maxlength="20" value="Computer" />
+        <input type="text" class="player-name" placeholder="${escapeHtml(name)}" maxlength="20" value="${escapeHtml(name)}" />
         <button type="button" class="remove-player" title="Entfernen">×</button>
       `;
       row.querySelector(".remove-player").addEventListener("click", () => {
@@ -555,7 +574,7 @@
       });
     } else {
       row.innerHTML = `
-        <input type="text" class="player-name" placeholder="Spieler" maxlength="20" />
+        <input type="text" class="player-name" placeholder="Spielername" maxlength="20" />
       `;
     }
     $playersSetup.appendChild(row);
@@ -569,12 +588,9 @@
       const input = row.querySelector(".player-name");
       if (row.dataset.type === "computer") {
         computerCount++;
-        if (input.value === "Computer" || input.value === "") {
-          input.placeholder = `Computer ${computerCount}`;
-        }
       } else {
         humanCount++;
-        input.placeholder = `Spieler ${humanCount}`;
+        input.placeholder = "Spielername";
       }
     });
   }
@@ -614,6 +630,7 @@
     state.isMacke = false;
     state.computerThinking = false;
     state.hasFrozen = false;
+    state.turnEnding = false;
 
     updateScoreboard();
     updateStats();
@@ -627,8 +644,7 @@
 
   // ========== INIT ==========
 
-  // Initial two human player rows
-  addPlayerRow("human");
+  // Initial single human player row
   addPlayerRow("human");
 
   $addPlayer.addEventListener("click", () => addPlayerRow("human"));
@@ -637,9 +653,8 @@
   $rollBtn.addEventListener("click", rollDice);
   $bankBtn.addEventListener("click", bankScore);
   $newGame.addEventListener("click", () => {
-    // Reset setup screen to two empty human players
+    // Reset setup screen to single empty human player
     $playersSetup.innerHTML = "";
-    addPlayerRow("human");
     addPlayerRow("human");
     $setupError.textContent = "";
     switchScreen("setup");
