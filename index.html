@@ -1,0 +1,99 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+  <title>Macke – 10.000</title>
+  <link rel="stylesheet" href="style.css?v=5" />
+  <script>
+    window.onerror = function(msg, url, line) {
+      console.error('JS ERROR:', msg, url, line);
+      document.body.innerHTML = '<div style="padding:20px;color:#fff;"><h1>Fehler</h1><p>' + msg + ' (Zeile ' + line + ')</p></div>';
+    };
+  </script>
+</head>
+<body>
+  <main id="app">
+    <section id="setup" class="screen active">
+      <h1>🎲 Macke</h1>
+      <p class="subtitle">Wer zuerst 10.000 Punkte hat, gewinnt!</p>
+      <div id="players-setup">
+        <div class="player-input-row">
+          <input type="text" class="player-name" placeholder="Spieler 1" maxlength="20" />
+        </div>
+        <div class="player-input-row">
+          <input type="text" class="player-name" placeholder="Spieler 2" maxlength="20" />
+        </div>
+      </div>
+      <div class="setup-actions">
+        <button id="add-player" class="btn secondary">+ Spieler hinzufügen</button>
+        <button id="start-game" class="btn primary">Spiel starten</button>
+      </div>
+      <p id="setup-error" class="error"></p>
+    </section>
+
+    <section id="game" class="screen">
+      <header>
+        <h1>🎲 Macke</h1>
+        <div id="players-list"></div>
+      </header>
+
+      <div id="scoreboard"></div>
+
+      <div id="dice-area">
+        <div id="dice-container">
+          <!-- Initial dice placeholders to avoid empty render -->
+          <div class="die-wrapper frozen"><div class="die"><div class="die-face face-1"><span class="pip"></span></div></div></div>
+          <div class="die-wrapper frozen"><div class="die"><div class="die-face face-1"><span class="pip"></span></div></div></div>
+          <div class="die-wrapper frozen"><div class="die"><div class="die-face face-1"><span class="pip"></span></div></div></div>
+          <div class="die-wrapper frozen"><div class="die"><div class="die-face face-1"><span class="pip"></span></div></div></div>
+          <div class="die-wrapper frozen"><div class="die"><div class="die-face face-1"><span class="pip"></span></div></div></div>
+          <div class="die-wrapper frozen"><div class="die"><div class="die-face face-1"><span class="pip"></span></div></div></div>
+        </div>
+        <p id="round-info">Runde: <span id="current-player-name">-</span></p>
+      </div>
+
+      <div id="stats">
+        <div class="stat-box">
+          <span class="label">Rundenpunkte</span>
+          <span id="round-score">0</span>
+        </div>
+        <div class="stat-box">
+          <span class="label">Auswahl</span>
+          <span id="selection-score">0</span>
+        </div>
+      </div>
+
+      <div id="message" class=""></div>
+
+      <div id="controls">
+        <button id="roll-btn" class="btn primary">Würfeln</button>
+        <button id="bank-btn" class="btn success" disabled>Aufschreiben</button>
+      </div>
+
+      <div id="rules-peek">
+        <details>
+          <summary>Regeln</summary>
+          <ul>
+            <li>1 = 100 Punkte</li>
+            <li>5 = 50 Punkte</li>
+            <li>Dreierpasch: 3×1 = 1.000, sonst 3×Augenzahl × 100</li>
+            <li>Kein gültiger Wurf = 0 Punkte für die Runde</li>
+            <li>Alle 6 Würfel rauslegen = mit 6 neuen weiterwürfeln</li>
+            <li>Wer zuerst 10.000 Punkte hat, gewinnt</li>
+          </ul>
+        </details>
+      </div>
+    </section>
+
+    <section id="winner" class="screen">
+      <h1>🏆 Gewinner!</h1>
+      <p id="winner-name"></p>
+      <p id="winner-score"></p>
+      <button id="new-game" class="btn primary">Neues Spiel</button>
+    </section>
+  </main>
+
+  <script src="game.js?v=5"></script>
+</body>
+</html>
