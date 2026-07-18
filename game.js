@@ -43,6 +43,72 @@
     return Math.floor(Math.random() * (max - min + 1)) + min;
   }
 
+  // Würfelsound: kurze "Klack"-Impulse via Web Audio API (kein Asset nötig).
+  // AudioContext wird erst bei erstem Wurf erstellt (User-Gesture-Policy).
+  let audioCtx = null;
+
+  function playDiceClick(delaySec) {
+    const t = audioCtx.currentTime + delaySec;
+    const duration = 0.05 + Math.random() * 0.03;
+
+    // Körniges Klack-Geräusch: kurzer Rausch-Burst mit Bandpass
+    const noiseLen = Math.floor(audioCtx.sampleRate * duration);
+    const buffer = audioCtx.createBuffer(1, noiseLen, audioCtx.sampleRate);
+    const data = buffer.getChannelData(0);
+    for (let i = 0; i < noiseLen; i++) {
+      data[i] = (Math.random() * 2 - 1) * (1 - i / noiseLen);
+    }
+    const noise = audioCtx.createBufferSource();
+    noise.buffer = buffer;
+
+    const bandpass = audioCtx.createBiquadFilter();
+    bandpass.type = "bandpass";
+    bandpass.frequency.value = 1500 + Math.random() * 1500;
+    bandpass.Q.value = 1.2;
+
+    const noiseGain = audioCtx.createGain();
+    noiseGain.gain.setValueAtTime(0.5, t);
+    noiseGain.gain.exponentialRampToValueAtTime(0.001, t + duration);
+
+    noise.connect(bandpass).connect(noiseGain).connect(audioCtx.destination);
+    noise.start(t);
+    noise.stop(t + duration);
+
+    // Tiefer "Thock"-Anteil: kurzer Sinus, schnell fallend
+    const osc = audioCtx.createOscillator();
+    osc.type = "sine";
+    osc.frequency.setValueAtTime(180 + Math.random() * 80, t);
+    osc.frequency.exponentialRampToValueAtTime(60, t + duration);
+
+    const oscGain = audioCtx.createGain();
+    oscGain.gain.setValueAtTime(0.25, t);
+    oscGain.gain.exponentialRampToValueAtTime(0.001, t + duration);
+
+    osc.connect(oscGain).connect(audioCtx.destination);
+    osc.start(t);
+    osc.stop(t + duration);
+  }
+
+  function playRollSound() {
+    try {
+      if (!audioCtx) {
+        const AC = window.AudioContext || window.webkitAudioContext;
+        if (!AC) return;
+        audioCtx = new AC();
+      }
+      if (audioCtx.state === "suspended") {
+        audioCtx.resume();
+      }
+      // 4–6 unregelmäßige Klacks verteilt über die 600ms-Rollanimation
+      const clicks = rand(4, 6);
+      for (let i = 0; i < clicks; i++) {
+        playDiceClick((i / clicks) * 0.5 + Math.random() * 0.06);
+      }
+    } catch (e) {
+      // Sound ist optional — Spielfluss nie blockieren
+    }
+  }
+
   function showMessage(text, type = "info") {
     $message.textContent = text;
     $message.className = type;
@@ -294,6 +360,7 @@
     });
 
     renderDice();
+    playRollSound();
 
     setTimeout(() => {
       state.dice.forEach((d) => {
