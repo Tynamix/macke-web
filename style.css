@@ -81,6 +81,7 @@ h1 {
   display: flex;
   gap: 8px;
   margin-bottom: 10px;
+  align-items: center;
 }
 
 .player-input-row input {
@@ -97,6 +98,35 @@ h1 {
 
 .player-input-row input::placeholder {
   color: var(--muted);
+}
+
+.computer-badge {
+  font-size: 1.4rem;
+  line-height: 1;
+  user-select: none;
+}
+
+.remove-player {
+  width: 40px;
+  height: 40px;
+  border: none;
+  border-radius: 50%;
+  background: var(--danger);
+  color: white;
+  font-size: 1.4rem;
+  font-weight: 700;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: var(--shadow);
+  flex-shrink: 0;
+  padding: 0;
+  line-height: 1;
+}
+
+.remove-player:active {
+  transform: scale(0.92);
 }
 
 .setup-actions {

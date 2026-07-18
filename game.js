@@ -6,6 +6,7 @@
 
   const state = {
     players: [],
+    playerTypes: [],
     currentPlayerIndex: 0,
     totalScores: [],
     roundScore: 0,
@@ -17,6 +18,9 @@
     gameOver: false,
     isRolling: false,
     isMacke: false,
+    computerThinking: false,
+    hasFrozen: false,
+    turnEnding: false,
   };
 
   const $setup = document.getElementById("setup");
@@ -24,6 +28,7 @@
   const $winner = document.getElementById("winner");
   const $playersSetup = document.getElementById("players-setup");
   const $addPlayer = document.getElementById("add-player");
+  const $addComputer = document.getElementById("add-computer");
   const $startGame = document.getElementById("start-game");
   const $setupError = document.getElementById("setup-error");
   const $activePlayer = document.getElementById("active-player");
@@ -175,6 +180,12 @@
     return score > 0 && used === values.length;
   }
 
+  function countByValue(values) {
+    const counts = {};
+    values.forEach((v) => (counts[v] = (counts[v] || 0) + 1));
+    return counts;
+  }
+
   // Build DOM for a 3D die with six faces
   function createDie(index, value) {
     const wrapper = document.createElement("div");
@@ -238,7 +249,8 @@
 
     $activePlayer.className = "score-card active";
     if (activeScore >= WIN_SCORE) $activePlayer.classList.add("winner");
-    $activePlayer.innerHTML = `<span class="name">${escapeHtml(activeName)}</span><span class="score">${activeScore}</span>`;
+    const activeIcon = state.playerTypes[activeIndex] === "computer" ? "🤖 " : "";
+    $activePlayer.innerHTML = `<span class="name">${activeIcon}${escapeHtml(activeName)}</span><span class="score">${activeScore}</span>`;
 
     $playersList.innerHTML = "";
     state.players.forEach((name, i) => {
@@ -246,7 +258,8 @@
       const chip = document.createElement("div");
       chip.className = "player-chip";
       if (state.totalScores[i] >= WIN_SCORE) chip.classList.add("winner");
-      chip.innerHTML = `<span class="chip-name">${escapeHtml(name)}</span><span class="chip-score">${state.totalScores[i]}</span>`;
+      const chipIcon = state.playerTypes[i] === "computer" ? "🤖 " : "";
+      chip.innerHTML = `<span class="chip-name">${chipIcon}${escapeHtml(name)}</span><span class="chip-score">${state.totalScores[i]}</span>`;
       $playersList.appendChild(chip);
     });
   }
@@ -264,11 +277,18 @@
   }
 
   function setControls() {
-    $bankBtn.disabled = !state.canBank || state.isRolling;
-    $rollBtn.disabled = state.isRolling;
+    const isComputer = state.playerTypes[state.currentPlayerIndex] === "computer";
+    $bankBtn.disabled =
+      (!state.canBank && !state.isMacke) ||
+      state.isRolling ||
+      isComputer ||
+      state.turnEnding;
+    $rollBtn.disabled =
+      state.isRolling || isComputer || state.isMacke || state.turnEnding;
   }
 
   function onDieClick(index) {
+    if (state.playerTypes[state.currentPlayerIndex] === "computer") return;
     if (state.isRolling || state.frozenDice.has(index)) return;
     if (!state.hasRolled) {
       showMessage("Würfle zuerst!", "warning");
@@ -303,39 +323,20 @@
   }
 
   function rollDice() {
-    if (state.isRolling || state.gameOver) return;
+    if (state.isRolling || state.gameOver || state.turnEnding) return;
 
-    // If previous roll was a Macke, end turn and immediately roll for the next player
-    if (state.isMacke) {
-      state.roundScore = 0;
-      const currentName = state.players[state.currentPlayerIndex];
-      showMessage(`Macke! ${currentName} kommt auf 0 Punkte.`, "danger");
-      state.isMacke = false;
-      state.dice = [];
-      state.frozenDice.clear();
-      state.selectedDice.clear();
-      state.hasRolled = false;
-      state.currentPlayerIndex =
-        (state.currentPlayerIndex + 1) % state.players.length;
-      updateScoreboard();
-      updateStats();
-      renderDice();
-      clearMessage();
-      // Continue directly into rolling for the next player
-    } else {
-      // Prevent rolling again before selecting at least one scoring die
-      if (state.hasRolled && state.selectedDice.size === 0) {
-        showMessage("Wähle mindestens einen wertbaren Würfel aus, bevor du wieder würfelst.", "warning");
+    // Prevent rolling again before selecting at least one scoring die
+    if (state.hasRolled && state.selectedDice.size === 0 && !state.hasFrozen) {
+      showMessage("Wähle mindestens einen wertbaren Würfel aus, bevor du wieder würfelst.", "warning");
+      return;
+    }
+
+    if (state.selectedDice.size > 0) {
+      if (!isValidSelection()) {
+        showMessage("Wähle nur wertbare Würfel aus.", "danger");
         return;
       }
-
-      if (state.selectedDice.size > 0) {
-        if (!isValidSelection()) {
-          showMessage("Wähle nur wertbare Würfel aus.", "danger");
-          return;
-        }
-        freezeSelection();
-      }
+      freezeSelection();
     }
 
     const available = DICE_COUNT - state.frozenDice.size;
@@ -349,6 +350,7 @@
     state.hasRolled = true;
     state.canBank = false;
     state.isMacke = false;
+    state.hasFrozen = false;
     clearMessage();
     setControls();
 
@@ -381,15 +383,17 @@
     if (!canScore(activeValues)) {
       state.isMacke = true;
       state.canBank = false;
-      showMessage("Macke! Drücke \"Würfeln\", um den Zug zu enden.", "danger");
+      showMessage("Macke! Schreibe auf, um den Zug zu beenden.", "danger");
       updateStats();
       setControls();
+      scheduleComputerAction();
       return;
     }
 
     state.isMacke = false;
     state.canBank = false;
     showMessage("Wähle wertbare Würfel aus.", "info");
+    scheduleComputerAction();
   }
 
   function freezeSelection() {
@@ -399,13 +403,22 @@
 
     state.roundScore += score;
     state.canBank = true;
+    state.hasFrozen = true;
     selected.forEach((i) => state.frozenDice.add(i));
     state.selectedDice.clear();
     updateStats();
   }
 
   function bankScore() {
-    if (!state.canBank || state.isRolling || state.gameOver) return;
+    if (state.isRolling || state.gameOver || state.turnEnding) return;
+
+    // Macke end: allow banking with 0 points
+    if (state.isMacke) {
+      endMackeTurn();
+      return;
+    }
+
+    if (!state.canBank) return;
 
     if (state.selectedDice.size > 0) {
       if (!isValidSelection()) {
@@ -415,6 +428,8 @@
       freezeSelection();
     }
 
+    state.turnEnding = true;
+    setControls();
     state.totalScores[state.currentPlayerIndex] += state.roundScore;
     showMessage(`${state.players[state.currentPlayerIndex]} bekommt ${state.roundScore} Punkte!`, "success");
     updateScoreboard();
@@ -424,6 +439,13 @@
       return;
     }
 
+    setTimeout(nextTurn, 900);
+  }
+
+  function endMackeTurn() {
+    state.turnEnding = true;
+    setControls();
+    showMessage(`Macke! ${state.players[state.currentPlayerIndex]} verliert die Runde.`, "danger");
     setTimeout(nextTurn, 900);
   }
 
@@ -438,6 +460,8 @@
     state.canBank = false;
     state.isRolling = false;
     state.isMacke = false;
+    state.hasFrozen = false;
+    state.turnEnding = false;
     clearMessage();
 
     renderDice();
@@ -445,6 +469,7 @@
     updateStats();
     setControls();
     showMessage(`Drücke "Würfeln", um deinen Zug zu starten.`, "info");
+    scheduleComputerAction();
   }
 
   function endGame() {
@@ -456,15 +481,202 @@
     switchScreen("winner");
   }
 
-  function setupGame() {
-    const inputs = Array.from($playersSetup.querySelectorAll(".player-name"));
-    const names = inputs.map((i) => i.value.trim()).filter((n) => n !== "");
+  // ========== COMPUTER AI ==========
 
-    if (names.length < 2) {
+  function isComputerTurn() {
+    return state.playerTypes[state.currentPlayerIndex] === "computer";
+  }
+
+  function scheduleComputerAction() {
+    if (!isComputerTurn() || state.gameOver || state.isRolling || state.computerThinking) return;
+    state.computerThinking = true;
+    setTimeout(() => {
+      computerTurnStep();
+      state.computerThinking = false;
+    }, 1100);
+  }
+
+  function computerTurnStep() {
+    if (!isComputerTurn() || state.gameOver || state.isRolling || state.turnEnding) return;
+
+    // Handle Macke: press bank to end turn
+    if (state.isMacke) {
+      bankScore();
+      return;
+    }
+
+    // First action of turn: roll
+    if (!state.hasRolled) {
+      rollDice();
+      return;
+    }
+
+    // After a roll: decide what to do
+    const choice = chooseBestComputerMove();
+    if (!choice || choice.score === 0) {
+      // Should not happen (Macke handled above), but safety fallback
+      rollDice();
+      return;
+    }
+
+    // Select dice visually
+    state.selectedDice = new Set(choice.indices);
+    renderDice();
+    updateStats();
+
+    showMessage(`Computer wählt ${choice.score} Punkte...`, "info");
+
+    setTimeout(() => {
+      if (!isComputerTurn() || state.gameOver) return;
+      freezeSelection();
+      setControls();
+
+      // Decide: bank or roll again?
+      if (shouldBank()) {
+        showMessage(`Computer schreibt ${state.roundScore} Punkte auf.`, "success");
+        setTimeout(() => bankScore(), 800);
+      } else {
+        showMessage("Computer würfelt weiter...", "info");
+        setTimeout(() => rollDice(), 800);
+      }
+    }, 900);
+  }
+
+  // Returns the best subset of currently available dice indices for the computer.
+  // Prefers subsets that use more dice when scores tie.
+  function chooseBestComputerMove() {
+    const availableIndices = [];
+    state.dice.forEach((d, i) => {
+      if (!state.frozenDice.has(i)) availableIndices.push(i);
+    });
+    const n = availableIndices.length;
+    if (n === 0) return null;
+
+    let best = null;
+
+    for (let mask = 1; mask < (1 << n); mask++) {
+      const indices = [];
+      for (let i = 0; i < n; i++) {
+        if (mask & (1 << i)) indices.push(availableIndices[i]);
+      }
+      const values = indices.map((i) => state.dice[i].value);
+      const { score, used } = scoreDice(values);
+      if (score > 0 && used === values.length) {
+        if (
+          !best ||
+          score > best.score ||
+          (score === best.score && indices.length > best.indices.length)
+        ) {
+          best = { indices, score };
+        }
+      }
+    }
+    return best;
+  }
+
+  function shouldBank() {
+    const remainingDice = DICE_COUNT - state.frozenDice.size;
+    const potentialTotal = state.totalScores[state.currentPlayerIndex] + state.roundScore;
+    const computerTotal = state.totalScores[state.currentPlayerIndex];
+    const maxOpponent = Math.max(...state.totalScores);
+    const behind = maxOpponent - computerTotal;
+
+    // Win if possible
+    if (potentialTotal >= WIN_SCORE) return true;
+
+    // All dice frozen -> fresh 6 dice, always roll again
+    if (remainingDice === 0) return false;
+
+    // With plenty of dice left, be bold
+    if (remainingDice >= 3) {
+      if (behind > 1500 && state.roundScore < 500) return false;
+      if (state.roundScore >= 800) return true;
+      return false;
+    }
+
+    // With 1-2 dice left, bank a reasonable amount
+    const target = computerTotal >= 7000 ? 400 : 250;
+    if (state.roundScore >= target) return true;
+
+    // Far behind: try to catch up even with few dice
+    if (behind > 2000 && state.roundScore < 400) return false;
+
+    return false;
+  }
+
+  // ========== SETUP ==========
+
+  const COMPUTER_NAMES = [
+    "Robo", "Kalle", "Doro", "Hanni", "Fritz", "Greta", "Otto", "Berta",
+    "Klara", "Hugo", "Emil", "Luise", "Walter", "Erika", "Paul", "Anna"
+  ];
+
+  function getRandomComputerName() {
+    const existing = new Set(state.players);
+    // Also avoid names already present in setup rows
+    Array.from($playersSetup.querySelectorAll(".player-name")).forEach((input) => {
+      if (input.value.trim()) existing.add(input.value.trim());
+    });
+    const available = COMPUTER_NAMES.filter((n) => !existing.has(n));
+    if (available.length === 0) return `Computer ${existing.size + 1}`;
+    return available[rand(0, available.length - 1)];
+  }
+
+  function addPlayerRow(type = "human") {
+    if ($playersSetup.children.length >= 8) return;
+    const row = document.createElement("div");
+    row.className = "player-input-row";
+    row.dataset.type = type;
+
+    if (type === "computer") {
+      const name = getRandomComputerName();
+      row.innerHTML = `
+        <span class="computer-badge">🤖</span>
+        <input type="text" class="player-name" placeholder="${escapeHtml(name)}" maxlength="20" value="${escapeHtml(name)}" />
+        <button type="button" class="remove-player" title="Entfernen">×</button>
+      `;
+      row.querySelector(".remove-player").addEventListener("click", () => {
+        row.remove();
+        updatePlaceholders();
+      });
+    } else {
+      row.innerHTML = `
+        <input type="text" class="player-name" placeholder="Spielername" maxlength="20" />
+      `;
+    }
+    $playersSetup.appendChild(row);
+    updatePlaceholders();
+  }
+
+  function updatePlaceholders() {
+    let humanCount = 0;
+    let computerCount = 0;
+    Array.from($playersSetup.children).forEach((row) => {
+      const input = row.querySelector(".player-name");
+      if (row.dataset.type === "computer") {
+        computerCount++;
+      } else {
+        humanCount++;
+        input.placeholder = "Spielername";
+      }
+    });
+  }
+
+  function setupGame() {
+    const rows = Array.from($playersSetup.querySelectorAll(".player-input-row"));
+    const entries = rows
+      .map((row) => ({
+        name: row.querySelector(".player-name").value.trim(),
+        type: row.dataset.type || "human",
+      }))
+      .filter((e) => e.name !== "");
+
+    if (entries.length < 2) {
       $setupError.textContent = "Mindestens 2 Spieler mit Namen eingeben.";
       return;
     }
 
+    const names = entries.map((e) => e.name);
     const unique = new Set(names);
     if (unique.size !== names.length) {
       $setupError.textContent = "Jeder Spieler braucht einen eindeutigen Namen.";
@@ -472,7 +684,8 @@
     }
 
     state.players = names;
-    state.totalScores = new Array(names.length).fill(0);
+    state.playerTypes = entries.map((e) => e.type);
+    state.totalScores = new Array(entries.length).fill(0);
     state.currentPlayerIndex = 0;
     state.roundScore = 0;
     state.dice = [];
@@ -482,6 +695,9 @@
     state.canBank = false;
     state.gameOver = false;
     state.isMacke = false;
+    state.computerThinking = false;
+    state.hasFrozen = false;
+    state.turnEnding = false;
 
     updateScoreboard();
     updateStats();
@@ -490,25 +706,23 @@
     clearMessage();
     showMessage(`Drücke "Würfeln", um deinen Zug zu starten.`, "info");
     switchScreen("game");
+    scheduleComputerAction();
   }
 
-  $addPlayer.addEventListener("click", () => {
-    if ($playersSetup.children.length >= 8) return;
-    const row = document.createElement("div");
-    row.className = "player-input-row";
-    row.innerHTML = `<input type="text" class="player-name" placeholder="Spieler ${
-      $playersSetup.children.length + 1
-    }" maxlength="20" />`;
-    $playersSetup.appendChild(row);
-  });
+  // ========== INIT ==========
 
+  // Initial single human player row
+  addPlayerRow("human");
+
+  $addPlayer.addEventListener("click", () => addPlayerRow("human"));
+  $addComputer.addEventListener("click", () => addPlayerRow("computer"));
   $startGame.addEventListener("click", setupGame);
   $rollBtn.addEventListener("click", rollDice);
   $bankBtn.addEventListener("click", bankScore);
   $newGame.addEventListener("click", () => {
-    Array.from($playersSetup.querySelectorAll(".player-name")).forEach(
-      (i) => (i.value = "")
-    );
+    // Reset setup screen to single empty human player
+    $playersSetup.innerHTML = "";
+    addPlayerRow("human");
     $setupError.textContent = "";
     switchScreen("setup");
   });
@@ -521,6 +735,7 @@
   window.MackeGame = {
     getState: () => ({
       players: state.players,
+      playerTypes: state.playerTypes,
       currentPlayer: state.currentPlayerIndex,
       totalScores: state.totalScores,
       roundScore: state.roundScore,
@@ -542,6 +757,22 @@
       validateSelection();
       setControls();
       evaluateRoll();
+    },
+    setCurrentPlayer: (index) => {
+      state.currentPlayerIndex = index;
+      state.roundScore = 0;
+      state.dice = [];
+      state.selectedDice.clear();
+      state.frozenDice.clear();
+      state.hasRolled = false;
+      state.canBank = false;
+      state.isMacke = false;
+      renderDice();
+      updateScoreboard();
+      updateStats();
+      setControls();
+      clearMessage();
+      scheduleComputerAction();
     },
   };
 })();

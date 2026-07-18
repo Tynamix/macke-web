@@ -4,7 +4,7 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
   <title>Macke – 10.000</title>
-  <link rel="stylesheet" href="style.css?v=9" />
+  <link rel="stylesheet" href="style.css?v=14" />
   <script>
     window.onerror = function(msg, url, line) {
       console.error('JS ERROR:', msg, url, line);
@@ -18,15 +18,11 @@
       <h1>🎲 Macke</h1>
       <p class="subtitle">Wer zuerst 10.000 Punkte hat, gewinnt!</p>
       <div id="players-setup">
-        <div class="player-input-row">
-          <input type="text" class="player-name" placeholder="Spieler 1" maxlength="20" />
-        </div>
-        <div class="player-input-row">
-          <input type="text" class="player-name" placeholder="Spieler 2" maxlength="20" />
-        </div>
+        <!-- Spieler-Zeilen werden per JS hinzugefügt -->
       </div>
       <div class="setup-actions">
         <button id="add-player" class="btn secondary">+ Spieler hinzufügen</button>
+        <button id="add-computer" class="btn secondary">+ Computer hinzufügen</button>
         <button id="start-game" class="btn primary">Spiel starten</button>
       </div>
       <p id="setup-error" class="error"></p>
@@ -90,6 +86,6 @@
     </section>
   </main>
 
-  <script src="game.js?v=10"></script>
+  <script src="game.js?v=15"></script>
 </body>
 </html>
